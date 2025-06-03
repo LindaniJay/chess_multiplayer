@@ -45,6 +45,25 @@ Starts React dev server at `http://localhost:3000`.
 
 ---
 
+## 🐳 Docker: Run Everything Easily
+
+You can run the entire app (backend + frontend) with Docker:
+
+```bash
+docker-compose up --build
+```
+
+- This will build and run both the backend and frontend in a single container.
+- The app will be available at: http://localhost:4000
+- The React frontend is served from the backend (Node.js/Express) on the same port.
+
+If you want to stop the app:
+```bash
+docker-compose down
+```
+
+---
+
 ## 📌 Todo / In Progress
 
 - ✅ Set up multiplayer socket communication

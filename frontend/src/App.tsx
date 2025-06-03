@@ -250,6 +250,37 @@ const App: React.FC = () => {
     return moves[Math.floor(Math.random() * moves.length)];
   }
 
+  const handleAiStart = () => {
+    setAiFen('start');
+    setAiMoves([]);
+    setAiTurn('w');
+    setAiStatus('');
+    setAiError('');
+    setAiStarted(true);
+    setAiRedoStack([]);
+  };
+
+  const handleAiRematch = () => {
+    setAiFen('start');
+    setAiMoves([]);
+    setAiTurn('w');
+    setAiStatus('');
+    setAiError('');
+    setAiStarted(true);
+    setAiRedoStack([]);
+  };
+
+  const handleAiBackToCover = () => {
+    setAiStarted(false);
+    setAiFen('start');
+    setAiMoves([]);
+    setAiTurn('w');
+    setAiStatus('');
+    setAiError('');
+    setAiRedoStack([]);
+    setShowCover(true);
+  };
+
   const handleAiMove = (move: string) => {
     setAiError('');
     try {
@@ -261,13 +292,12 @@ const App: React.FC = () => {
       }
       setAiFen(chess.fen());
       setAiMoves((prev) => [...prev, move]);
+      setAiRedoStack([]);
       setAiTurn(chess.turn());
       if (chess.isCheckmate()) setAiStatus('Checkmate!');
       else if (chess.isStalemate()) setAiStatus('Stalemate!');
       else if (chess.isCheck()) setAiStatus('Check!');
       else setAiStatus('');
-
-      // If it's now black's turn and game not over, let AI move
       if (chess.turn() === 'b' && !chess.isGameOver()) {
         setTimeout(() => {
           const aiChess = new Chess(chess.fen());
@@ -277,10 +307,8 @@ const App: React.FC = () => {
             setAiFen(aiChess.fen());
             setAiMoves((prev) => [...prev, aiMove]);
             setAiTurn(aiChess.turn());
-            if (aiChess.isCheckmate()) setAiStatus('Checkmate!');
-            else if (aiChess.isStalemate()) setAiStatus('Stalemate!');
-            else if (aiChess.isCheck()) setAiStatus('Check!');
-            else setAiStatus('');
+            setAiStatus('');
+            setAiError('');
           }
         }, 500);
       }
@@ -289,28 +317,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAiRematch = () => {
-    setAiFen('start');
-    setAiMoves([]);
-    setAiTurn('w');
-    setAiStatus('');
-    setAiError('');
-  };
-
-  const handleAiStart = () => {
-    setAiFen('start');
-    setAiMoves([]);
-    setAiTurn('w');
-    setAiStatus('');
-    setAiError('');
-    setAiStarted(true);
-  };
-
   const handleAiUndo = () => {
-    if (aiMoves.length === 0) return;
-    let newMoves = aiMoves.slice();
-    if (newMoves.length > 0) aiRedoStack.unshift(newMoves.pop()!); // AI move
-    if (newMoves.length > 0) aiRedoStack.unshift(newMoves.pop()!); // Player move
+    if (aiMoves.length < 2) return;
+    let newMoves = aiMoves.slice(0, -2);
+    setAiRedoStack((prev) => [aiMoves[aiMoves.length - 2], aiMoves[aiMoves.length - 1], ...prev]);
     const chess = new Chess();
     newMoves.forEach((move) => {
       try { chess.move(move); } catch {}
@@ -320,7 +330,6 @@ const App: React.FC = () => {
     setAiTurn(chess.turn());
     setAiStatus('');
     setAiError('');
-    setAiRedoStack([...aiRedoStack]);
   };
 
   const handleAiRedo = () => {
@@ -341,177 +350,210 @@ const App: React.FC = () => {
     } catch {}
   };
 
+  // Helper for DiceBear avatar URL
+  function getAvatarUrl(nameOrId: string) {
+    return `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(nameOrId)}`;
+  }
+
   return (
-    <div className="app-container">
-      {showCover ? (
-        <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-          <h1 style={{ color: '#FFD700', marginBottom: 24 }}>Multiplayer Chess</h1>
-          <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-            <button type="button" onClick={() => setMode('online')} style={{ background: mode === 'online' ? '#FFD700' : '#222', color: mode === 'online' ? '#222' : '#FFD700', fontWeight: 'bold', border: '2px solid #FFD700', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Play Online</button>
-            <button type="button" onClick={() => setMode('solo')} style={{ background: mode === 'solo' ? '#FFD700' : '#222', color: mode === 'solo' ? '#222' : '#FFD700', fontWeight: 'bold', border: '2px solid #FFD700', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Play Solo</button>
-            <button type="button" onClick={() => setMode('ai')} style={{ background: mode === 'ai' ? '#FFD700' : '#222', color: mode === 'ai' ? '#222' : '#FFD700', fontWeight: 'bold', border: '2px solid #FFD700', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Play vs AI</button>
+    <div className="main-layout">
+      {/* Sidebar */}
+      <div className="sidebar">
+        <div className="tab-bar">
+          <button className={`tab${mode === 'online' ? ' selected' : ''}`} onClick={() => setMode('online')}>New Game</button>
+          <button className="tab">Games</button>
+          <button className="tab">Players</button>
+        </div>
+        {/* Sidebar controls based on mode */}
+        {mode === 'online' && (
+          <>
+            <button className="big-btn" onClick={() => setShowCover(true)}>Join Game</button>
+            <div className="sidebar-section">
+              <div style={{ color: '#FFD700', fontWeight: 'bold', marginBottom: 8 }}>Room Code: {gameId} <button title="Copy Room Code" style={{marginLeft: 8}} onClick={() => {navigator.clipboard.writeText(gameId)}}>📋</button></div>
+              <div style={{ color: '#BCAAA4', marginBottom: 8 }}>Players connected: {players}</div>
+              {playerColor && (
+                <div style={{ color: playerColor === 'w' ? '#FFD700' : '#B22222', fontWeight: 'bold', marginBottom: 8 }}>Your color: {playerColor === 'w' ? 'White' : 'Black'}</div>
+              )}
+              <div style={{ color: '#BCAAA4', marginBottom: 8 }}>Turn: <span style={{ color: turn === 'w' ? '#FFD700' : '#B22222', fontWeight: 'bold' }}>{turn === 'w' ? 'White' : 'Black'}</span></div>
+              {status && <div style={{ color: '#FFD700', fontWeight: 'bold', marginBottom: 8 }}>{status}</div>}
+              <button className="sidebar-btn" onClick={handleRematch} disabled={!status || (status !== 'Checkmate!' && status !== 'Stalemate!')}>Rematch</button>
+              <button className="sidebar-btn" onClick={() => setShowCover(true)} title="Leave Game">⬅️ Leave Game</button>
+            </div>
+          </>
+        )}
+        {mode === 'solo' && (
+          <>
+            <button className="big-btn" onClick={handleSoloRematch}>Rematch</button>
+            <button className="sidebar-btn" onClick={handleSoloReset}>Reset Solo Game</button>
+            <button className="sidebar-btn" onClick={() => setSoloBoardOrientation(o => o === 'white' ? 'black' : 'white')}>Flip Board</button>
+            <button className="sidebar-btn" onClick={() => setShowCover(true)} title="Back to Menu">⬅️ Back to Menu</button>
+          </>
+        )}
+        {mode === 'ai' && (
+          <>
+            <button className="big-btn" onClick={handleAiRematch}>Rematch</button>
+            <button className="sidebar-btn" onClick={handleAiBackToCover} title="Back to Menu">⬅️ Back to Menu</button>
+          </>
+        )}
+        <div className="sidebar-section">
+          <label style={{ color: '#FFD700', fontWeight: 'bold', marginBottom: 8 }}>Board Theme:</label>
+          <select className="dropdown" value={boardTheme} onChange={e => setBoardTheme(e.target.value as any)}>
+            <option value="manly">Manly</option>
+            <option value="classic">Classic</option>
+            <option value="blue">Blue</option>
+            <option value="green">Green</option>
+            <option value="wood">Wood</option>
+          </select>
+        </div>
+        <button className="sidebar-btn" title="How to Play / Help" onClick={() => alert('How to play: Standard chess rules. Use the sidebar to start or join games, and the board area to play!')}>❓ Help</button>
+        <div className="stats-bar">
+          <span>189,349 PLAYING</span>
+          <span>18,549,084 GAMES TODAY</span>
+        </div>
+      </div>
+      {/* Board Area */}
+      <div className="board-area">
+        {/* Opponent Info */}
+        <div className="player-info">
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {mode === 'ai' ? (
+              <div className="avatar" title="AI">🤖</div>
+            ) : (
+              <img className="avatar" src={mode === 'online' ? getAvatarUrl(playerNames[playerIDs[1]] || playerIDs[1] || 'opponent') : getAvatarUrl('opponent')} alt="Opponent Avatar" />
+            )}
+            <span>{mode === 'online' ? (playerNames[playerIDs[1]] || 'Opponent') : mode === 'ai' ? 'AI' : 'Opponent'}</span>
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ color: '#FFD700', fontWeight: 'bold', marginRight: 8 }}>Board Theme:</label>
-            <select value={boardTheme} onChange={e => setBoardTheme(e.target.value as any)} style={{ padding: 8, borderRadius: 6, fontSize: '1em' }}>
-              <option value="manly">Manly</option>
-              <option value="classic">Classic</option>
-              <option value="blue">Blue</option>
-              <option value="green">Green</option>
-              <option value="wood">Wood</option>
-            </select>
-          </div>
+          <div className="timer">{mode === 'online' ? formatTime(blackTime) : mode === 'ai' ? formatTime(blackTime) : ''}</div>
+        </div>
+        {/* Chessboard with border */}
+        <div className="board-border">
           {mode === 'online' && (
-            <>
-              <input
-                type="text"
-                placeholder="Your Name"
-                value={inputName}
-                onChange={e => setInputName(e.target.value)}
-                style={{ padding: 10, borderRadius: 6, border: '1px solid #BCAAA4', fontSize: '1.1em', width: 220 }}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Room Code (optional)"
-                value={inputRoom}
-                onChange={e => setInputRoom(e.target.value)}
-                style={{ padding: 10, borderRadius: 6, border: '1px solid #BCAAA4', fontSize: '1.1em', width: 220 }}
-              />
-              <button type="submit" style={{ marginTop: 16, width: 220 }}>Join Game</button>
-            </>
+            <ChessboardComponent
+              fen={fen}
+              moves={moves}
+              onMove={sendMove}
+              playerColor={playerColor}
+              turn={turn}
+              boardTheme={boardTheme}
+            />
           )}
           {mode === 'solo' && (
-            <button type="button" style={{ marginTop: 16, width: 220 }} onClick={() => setShowCover(false)}>Start Solo Game</button>
+            <ChessboardComponent
+              fen={soloFen}
+              moves={soloMoves}
+              onMove={handleSoloMove}
+              playerColor={soloTurn}
+              turn={soloTurn}
+              soloMode={true}
+              boardOrientation={soloBoardOrientation}
+              boardTheme={boardTheme}
+              onUndo={handleSoloUndo}
+              onRedo={handleSoloRedo}
+              canRedo={soloRedoStack.length > 0}
+            />
           )}
-        </form>
-      ) : mode === 'ai' ? (
-        <>
-          <h1>Chess vs AI</h1>
-          {!aiStarted ? (
-            <button onClick={handleAiStart} style={{ margin: '24px auto', display: 'block', background: '#FFD700', color: '#222', fontWeight: 'bold', border: '2px solid #B22222', borderRadius: 6, padding: '12px 32px', fontSize: '1.2em', cursor: 'pointer' }}>Start Game</button>
-          ) : (
-            <>
-              {aiStatus && <p style={{ color: '#FFD700', fontWeight: 'bold' }}>{aiStatus}</p>}
-              {aiError && <p style={{ color: 'red', fontWeight: 'bold' }}>{aiError}</p>}
-              <ChessboardComponent
-                fen={aiFen}
-                moves={aiMoves}
-                onMove={handleAiMove}
-                playerColor={'w'}
-                turn={aiTurn}
-                soloMode={true}
-                boardTheme={boardTheme}
-                aiMode={true}
-                onUndoAiMove={handleAiUndo}
-                onRedoAiMove={handleAiRedo}
-                canRedoAi={aiRedoStack.length >= 2}
-              />
-              <div style={{ marginTop: 24 }}>
-                <h3 style={{ color: '#FFD700', marginBottom: 8 }}>Move History</h3>
-                <ol style={{ color: '#BCAAA4', background: '#222', borderRadius: 8, padding: 12, maxHeight: 200, overflowY: 'auto' }}>
-                  {aiMoves.map((move, idx) => (
-                    <li key={idx}>{move}</li>
-                  ))}
-                </ol>
-              </div>
-              <div style={{ marginTop: 16, marginBottom: 8, display: 'flex', gap: 12 }}>
-                <button onClick={handleAiRematch}>Rematch</button>
-                <button onClick={() => setShowCover(true)}>Back to Cover</button>
-              </div>
-            </>
+          {mode === 'ai' && aiStarted && (
+            <ChessboardComponent
+              fen={aiFen}
+              moves={aiMoves}
+              onMove={handleAiMove}
+              playerColor={'w'}
+              turn={aiTurn}
+              soloMode={true}
+              boardTheme={boardTheme}
+              aiMode={true}
+              onUndoAiMove={handleAiUndo}
+              onRedoAiMove={handleAiRedo}
+              canRedoAi={aiRedoStack.length >= 2}
+            />
           )}
-        </>
-      ) : mode === 'solo' ? (
-        <>
-          <h1>Solo Chess</h1>
-          {soloStatus && <p style={{ color: '#FFD700', fontWeight: 'bold' }}>{soloStatus}</p>}
-          {soloError && <p style={{ color: 'red', fontWeight: 'bold' }}>{soloError}</p>}
-          <ChessboardComponent
-            fen={soloFen}
-            moves={soloMoves}
-            onMove={handleSoloMove}
-            playerColor={soloTurn}
-            turn={soloTurn}
-            soloMode={true}
-            boardOrientation={soloBoardOrientation}
-            boardTheme={boardTheme}
-            onUndo={handleSoloUndo}
-            onRedo={handleSoloRedo}
-            canRedo={soloRedoStack.length > 0}
-          />
-          <div style={{ marginTop: 24 }}>
-            <h3 style={{ color: '#FFD700', marginBottom: 8 }}>Move History</h3>
-            <ol style={{ color: '#BCAAA4', background: '#222', borderRadius: 8, padding: 12, maxHeight: 200, overflowY: 'auto' }}>
-              {soloMoves.map((move, idx) => (
-                <li key={idx}>{move}</li>
-              ))}
-            </ol>
+        </div>
+        {/* Your Info */}
+        <div className="player-info">
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <img className="avatar" src={getAvatarUrl(playerName || myID || 'you')} alt="Your Avatar" />
+            <span>{playerName || 'You'}</span>
           </div>
-          <div style={{ marginTop: 16, marginBottom: 8, display: 'flex', gap: 12 }}>
-            <button onClick={handleSoloRematch}>Rematch</button>
-            <button onClick={handleSoloReset}>Reset Solo Game</button>
-            <button onClick={() => setSoloBoardOrientation(o => o === 'white' ? 'black' : 'white')}>Flip Board</button>
-            <button onClick={() => setShowCover(true)}>Back to Cover</button>
-          </div>
-        </>
-      ) : (
-        <>
-          {error && <div style={{ color: 'red', fontWeight: 'bold', marginBottom: 16 }}>{error}</div>}
-          <h1>Multiplayer Chess</h1>
-          <p>Game ID: {gameId}</p>
-          <p>Players connected: {players}</p>
-          {playerColor && (
-            <p>Your color: <span style={{ color: playerColor === 'w' ? '#FFD700' : '#B22222', fontWeight: 'bold' }}>{playerColor === 'w' ? 'White' : 'Black'}</span></p>
-          )}
-          <p>Turn: <span style={{ color: turn === 'w' ? '#FFD700' : '#B22222', fontWeight: 'bold' }}>{turn === 'w' ? 'White' : 'Black'}</span></p>
-          {status && <p style={{ color: '#FFD700', fontWeight: 'bold' }}>{status}</p>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '16px 0', background: '#181818', borderRadius: 8, padding: 12 }}>
-            <div>
-              <h3 style={{ color: '#FFD700', margin: 0, marginBottom: 8 }}>Players</h3>
-              {playerIDs.map((id, idx) => (
-                <div key={id} style={{ color: idx === 0 ? '#FFD700' : '#B22222', fontWeight: myID === id ? 'bold' : 'normal' }}>
-                  {myID === id ? 'You' : `Opponent`} ({idx === 0 ? 'White' : 'Black'})<br />
-                  <span style={{ fontSize: '1em', color: '#FFD700' }}>{playerNames[id] || id}</span>
-                  <br />
-                  <span style={{ fontSize: '0.85em', color: '#BCAAA4' }}>{id}</span>
-                </div>
-              ))}
+          <div className="timer">{mode === 'online' ? formatTime(whiteTime) : mode === 'ai' ? formatTime(whiteTime) : ''}</div>
+        </div>
+        {/* Move History */}
+        <div style={{ marginTop: 24, width: '100%' }}>
+          <h3 style={{ color: '#FFD700', marginBottom: 8 }}>Move History</h3>
+          <ol style={{ color: '#BCAAA4', background: '#222', borderRadius: 8, padding: 12, maxHeight: 200, overflowY: 'auto' }}>
+            {(mode === 'online' ? moves : mode === 'solo' ? soloMoves : aiMoves).map((move, idx) => (
+              <li key={idx}>{move}</li>
+            ))}
+          </ol>
+        </div>
+      </div>
+      {/* Cover Modal Overlay */}
+      {showCover && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.7)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, background: '#222', borderRadius: 16, padding: 40, boxShadow: '0 4px 32px #000' }}>
+            <h1 style={{ color: '#FFD700', marginBottom: 24 }}>Multiplayer Chess</h1>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+              <button type="button" onClick={() => setMode('online')} style={{ background: mode === 'online' ? '#FFD700' : '#222', color: mode === 'online' ? '#222' : '#FFD700', fontWeight: 'bold', border: '2px solid #FFD700', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Play Online</button>
+              <button type="button" onClick={() => setMode('solo')} style={{ background: mode === 'solo' ? '#FFD700' : '#222', color: mode === 'solo' ? '#222' : '#FFD700', fontWeight: 'bold', border: '2px solid #FFD700', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Play Solo</button>
+              <button type="button" onClick={() => setMode('ai')} style={{ background: mode === 'ai' ? '#FFD700' : '#222', color: mode === 'ai' ? '#222' : '#FFD700', fontWeight: 'bold', border: '2px solid #FFD700', borderRadius: 6, padding: '8px 20px', cursor: 'pointer' }}>Play vs AI</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end' }}>
-              <div style={{ color: '#FFD700', fontWeight: 'bold', fontSize: '1.1em' }}>White: {formatTime(whiteTime)}</div>
-              <div style={{ color: '#B22222', fontWeight: 'bold', fontSize: '1.1em' }}>Black: {formatTime(blackTime)}</div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ color: '#FFD700', fontWeight: 'bold', marginRight: 8 }}>Board Theme:</label>
+              <select value={boardTheme} onChange={e => setBoardTheme(e.target.value as any)} style={{ padding: 8, borderRadius: 6, fontSize: '1em' }}>
+                <option value="manly">Manly</option>
+                <option value="classic">Classic</option>
+                <option value="blue">Blue</option>
+                <option value="green">Green</option>
+                <option value="wood">Wood</option>
+              </select>
             </div>
-          </div>
-          <ChessboardComponent
-            fen={fen}
-            moves={moves}
-            onMove={(move) => sendMove(move)}
-            playerColor={playerColor}
-            turn={turn}
-            boardTheme={boardTheme}
-          />
-          <div style={{ marginTop: 24 }}>
-            <h3 style={{ color: '#FFD700', marginBottom: 8 }}>Move History</h3>
-            <ol style={{ color: '#BCAAA4', background: '#222', borderRadius: 8, padding: 12, maxHeight: 200, overflowY: 'auto' }}>
-              {moves.map((move, idx) => (
-                <li key={idx}>{move}</li>
-              ))}
-            </ol>
-          </div>
-          <div style={{ marginTop: 16, marginBottom: 8 }}>
-            <button
-              onClick={handleRematch}
-              disabled={!status || (status !== 'Checkmate!' && status !== 'Stalemate!')}
-              style={{ opacity: (!status || (status !== 'Checkmate!' && status !== 'Stalemate!')) ? 0.5 : 1 }}
-            >
-              Rematch
-            </button>
-          </div>
-          <div style={{ marginTop: 16, marginBottom: 8, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-            <button onClick={() => setShowCover(true)}>Back to Cover</button>
-          </div>
-        </>
+            {mode === 'online' && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Your Name"
+                  value={inputName}
+                  onChange={e => setInputName(e.target.value)}
+                  style={{ padding: 10, borderRadius: 6, border: '1px solid #BCAAA4', fontSize: '1.1em', width: 220 }}
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Room Code (optional)"
+                  value={inputRoom}
+                  onChange={e => setInputRoom(e.target.value)}
+                  style={{ padding: 10, borderRadius: 6, border: '1px solid #BCAAA4', fontSize: '1.1em', width: 220 }}
+                />
+                <button type="submit" style={{ marginTop: 16, width: 220 }}>Join Game</button>
+              </>
+            )}
+            {mode === 'solo' && (
+              <button type="button" style={{ marginTop: 16, width: 220 }} onClick={() => setShowCover(false)}>Start Solo Game</button>
+            )}
+            {mode === 'ai' && (
+              <button
+                type="button"
+                style={{ marginTop: 16, width: 220 }}
+                onClick={() => {
+                  setShowCover(false);
+                  handleAiStart();
+                }}
+              >
+                Start Game
+              </button>
+            )}
+          </form>
+        </div>
       )}
     </div>
   );
